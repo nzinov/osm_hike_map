@@ -40,6 +40,7 @@ def fetch_tile(x, y, z):
     Return a PIL image.
 
     """
+    print("Fetching tile ({}, {})".format(x, y))
     url = get_url(x, y, z)
     png = BytesIO(urlopen(url).read())
     img = Image.open(png)
@@ -53,10 +54,6 @@ def fetch_map(box, z):
     box = correct_box(box, z)
     x0, y0, x1, y1 = box
     sx, sy = get_box_size(box)
-    if sx * sy >= MAXTILES:
-        raise Exception(("You are requesting a very large map, beware of "
-                         "OpenStreetMap tile usage policy "
-                         "(http://wiki.openstreetmap.org/wiki/Tile_usage_policy)."))
     img = Image.new('RGB', (sx*TILE_SIZE, sy*TILE_SIZE))
     for x in range(x0, x1 + 1):
         for y in range(y0, y1 + 1):
@@ -83,24 +80,6 @@ def get_box_size(box):
     sy = abs(y1 - y0) + 1
     return (sx, sy)
 
-
-def determine_scale(latitude, z):
-    """Determine the amount of meters per pixel
-
-    :param latitude: latitude in radians
-    :param z: zoom level
-
-    Source: http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Resolution_and_Scale
-
-    """
-    # For zoom = 0 at equator
-    meter_per_pixel = 156543.03
-
-    resolution = meter_per_pixel * np.cos(latitude) / (2 ** z)
-
-    return resolution
-
-
 # -----------------------------------------------------------------------------
 # Utility imaging functions
 # -----------------------------------------------------------------------------
@@ -112,12 +91,6 @@ def image_to_png(img):
     s = exp.read()
     exp.close()
     return s
-
-
-def image_to_numpy(img):
-    """Convert a PIL image to a NumPy array."""
-    return np.array(img)
-
 
 # -----------------------------------------------------------------------------
 # Functions related to coordinates
@@ -269,26 +242,26 @@ class Map(object):
         Can be called with `Map(box, z=z)` or `Map(lat, lon, z=z)`.
 
         """
-        z = kwargs.get('z', 18)
-        margin = kwargs.get('margin', .05)
+        z = 0
+        self.width, self.height = kwargs.get('size', (1024, 768))
 
         box = _box(*args)
-        if margin is not None:
-            box = extend_box(box, margin)
         self.box = box
 
-        self.z = self.get_allowed_zoom(z)
-        if z > self.z:
-            print('Lowered zoom level to keep map size reasonable. '
-                  '(z = %d)' % self.z)
-        else:
-            self.z = z
+        #self.z = self.get_allowed_zoom(z)
+        self.z = 13
+        print(self.z)
         self.box_tile = get_tile_box(self.box, self.z)
 
         self.xmin = min(self.box_tile[0], self.box_tile[2])
         self.ymin = min(self.box_tile[1], self.box_tile[3])
         self.img = None
         self.fetch()
+        left, upper = self.to_pixels(box[0], box[1])
+        right, lower = self.to_pixels(box[2], box[3])
+        left, right = sorted((left, right))
+        upper, lower = sorted((upper, lower))
+        self.img = self.img.crop((left, upper, right, lower))
 
     def to_pixels(self, lat, lon=None):
         """Convert from geographical coordinates to pixels in the image."""
@@ -309,12 +282,12 @@ class Map(object):
         else:
             return px, py
 
-    def get_allowed_zoom(self, z=18):
+    def get_allowed_zoom(self, z=0):
         box_tile = get_tile_box(self.box, z)
         box = correct_box(box_tile, z)
         sx, sy = get_box_size(box)
-        if sx * sy >= MAXTILES:
-            z = self.get_allowed_zoom(z - 1)
+        if sx*TILE_SIZE < self.width or sy*TILE_SIZE < self.height:
+            return self.get_allowed_zoom(z + 1)
         return z
 
     def fetch(self):
@@ -323,48 +296,6 @@ class Map(object):
             self.img = fetch_map(self.box_tile, self.z)
         self.w, self.h = self.img.size
         return self.img
-
-    def show_mpl(self, ax=None, figsize=None, dpi=None, **imshow_kwargs):
-        """Show the image in matplotlib.
-
-        Parameters
-        ----------
-        ax : matplotlib axes, optional
-            Matplotlib axes used to show the image.  If `None`, a
-            a new figure is created.  Default is `None`.
-        figsize, dpi : optional
-            These arguments are passed as arguments for the created
-            figure if `ax` is `None`.  Default is `None` for both
-            parameters.
-        **imshow_kwargs : optional
-            All remaining keyword arguments are passed to matplotlib
-            imshow.
-        """
-        if not ax:
-            plt.figure(figsize=figsize, dpi=dpi)
-            ax = plt.subplot(111)
-            plt.xticks([])
-            plt.yticks([])
-            plt.grid(False)
-            plt.xlim(0, self.w)
-            plt.ylim(self.h, 0)
-            plt.axis('off')
-            plt.tight_layout()
-        ax.imshow(self.img, **imshow_kwargs)
-        return ax
-
-    def show_ipython(self):
-        """Show the image in IPython as a PNG image."""
-        png = image_to_png(self.img)
-        display_png(png, raw=True)
-
-    def to_pil(self):
-        """Return the PIL image."""
-        return self.img
-
-    def to_numpy(self):
-        """Return the image as a NumPy array."""
-        return image_to_numpy(self.img)
 
     def save_png(self, filename):
         """Save the image to a PNG file."""
