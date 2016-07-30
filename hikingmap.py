@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, os, math, getopt, tempfile, mapnik
+import sys, os, math, getopt, tempfile
 from xml.dom import minidom
 from collections import namedtuple
 
@@ -697,9 +697,6 @@ class TrackFinder:
 
 
 # MAIN
-
-if not hasattr(mapnik, 'mapnik_version') and not mapnik.mapnik_version() >= 600:
-    raise SystemExit('This script requires Mapnik >= 0.6.0)')
 
 params = Parameters()
 if not params.parse_commandline():
