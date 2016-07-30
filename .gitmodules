@@ -1,0 +1,3 @@
+[submodule "smopy"]
+	path = smopy
+	url = https://github.com/rossant/smopy
