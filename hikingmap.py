@@ -3,6 +3,7 @@
 # hikingmap -- render maps on paper using data from OpenStreetMap
 # Copyright (C) 2015  Roel Derickx <roel.derickx AT gmail>
 #                     Frederik Vincken <fvincken AT gmail>
+# Copyright 2016 Nikolay Zinov <nzinov AT gmail>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
